@@ -10,9 +10,11 @@ IFCN: Interactive Fore-Background Cognition Network for Precision Manufacturing 
 </div>
 
 
-# CPSAD-FS Dataset
+# PM2D-CDFSS Dataset
 
-The CPSAD-FS dataset can be publicly available at [Google drive](https://drive.google.com/file/d/1KnCiFbM4Y-CF9w4WTm5gWrAJhqc1Cf2f/view?usp=drive_link).
+We are actively communicating with the data provider units to strive for the early de-identification of all the data, and then we will upload the complete dataset.
+
+The PM2D-CDFSS dataset (part) can be publicly available at [Google drive](https://drive.google.com/file/d/1KnCiFbM4Y-CF9w4WTm5gWrAJhqc1Cf2f/view?usp=drive_link).
 
 <div align=center>
   
