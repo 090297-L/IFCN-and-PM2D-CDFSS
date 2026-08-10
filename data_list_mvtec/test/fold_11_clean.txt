@@ -1,0 +1,12 @@
+toothbrush_defective/Nd/000.png	57
+toothbrush_defective/Nd/001.png	57
+toothbrush_defective/Nd/002.png	57
+toothbrush_defective/Nd/003.png	57
+toothbrush_defective/Nd/004.png	57
+toothbrush_defective/Nd/005.png	57
+toothbrush_defective/Nd/006.png	57
+toothbrush_defective/Nd/007.png	57
+toothbrush_defective/Nd/008.png	57
+toothbrush_defective/Nd/009.png	57
+toothbrush_defective/Nd/010.png	57
+toothbrush_defective/Nd/011.png	57
