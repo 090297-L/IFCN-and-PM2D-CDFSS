@@ -14,7 +14,7 @@ IFCN: Interactive Fore-Background Cognition Network for Precision Manufacturing 
 
 We are actively communicating with the data provider units to strive for the early de-identification of all the data, and then we will upload the complete dataset.
 
-The PM2D-CDFSS dataset (part) can be publicly available at [Google drive]https://drive.google.com/file/d/19ro45hrNubiOWlolgCTRM6a-Qc3VeM_2/view?usp=drive_link).
+The PM2D-CDFSS dataset (part) can be publicly available at [Google drive](https://drive.google.com/file/d/19ro45hrNubiOWlolgCTRM6a-Qc3VeM_2/view?usp=drive_link).
 
 <div align=center>
   
