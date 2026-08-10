@@ -5,7 +5,7 @@ IFCN: Interactive Fore-Background Cognition Network for Precision Manufacturing 
 
 <div align=center>
   
-<img src="https://github.com/090297-L/DCCNet-and-CPSAD-FS/blob/main/main_net.png" width="1500px"> 
+<img src="https://github.com/090297-L/IFCN-and-PM2D-CDFSS/blob/main/images/IFCN.png" width="1500px"> 
 
 </div>
 
@@ -16,6 +16,6 @@ The CPSAD-FS dataset can be publicly available at [Google drive](https://drive.g
 
 <div align=center>
   
-<img src="https://github.com/090297-L/DCCNet-and-CPSAD-FS/blob/main/dataset.png" width="1500px"> 
+<img src="https://github.com/090297-L/IFCN-and-PM2D-CDFSS/blob/main/images/PM2D-CDFSS.png" width="1500px"> 
 
 </div>
