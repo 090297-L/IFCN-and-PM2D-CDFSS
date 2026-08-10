@@ -10,8 +10,6 @@ from SAM2pred import *
 import numpy as np
 from skimage.measure import label
 
-from segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
-
 from peft import LoraConfig, get_peft_model
 
 from model.SPAC import SPAC
@@ -20,8 +18,8 @@ from model.DSTCP import DSTCP
 
 class SAMMaskGenerator_without_Prompt(nn.Module):
     def __init__(self,
-                 model_type="vit_b",
-                 checkpoint_path="/gly/yury/lhy/CFNet/initmodel/sam_vit_b_01ec64.pth",
+                 model_type="***",
+                 checkpoint_path="/gly/yury/lhy/CFNet/initmodel/***",
                  points_per_side=8,
                  pred_iou_thresh=0.82,
                  device="cuda"):
@@ -43,38 +41,31 @@ class SAMMaskGenerator_without_Prompt(nn.Module):
             pred_iou_thresh=pred_iou_thresh,
             stability_score_thresh=0.85,
             crop_n_layers=1,
-            points_per_batch=64         # 提高批处理点数加速推理
+            points_per_batch=64     
         )
 
-        # 图像归一化参数
+
         self.register_buffer("mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
         self.register_buffer("std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
 
     def denormalize(self, tensor):
-        """将归一化的图像张量转换到 0-255 范围"""
+
         return torch.clamp((tensor * self.std + self.mean) * 255, 0, 255).byte()
 
     def forward(self, images, strategy="largest"):
-        """
-        输入:
-            images - [B, C, H, W] 归一化后的图像张量 (0-1)
-            strategy - 掩码选择策略: "largest" | "best_quality" | "merge_all"
-        输出:
-            masks - [B, 1, H, W] 二进制掩码
-        """
+
         batch_masks = []
         for img in images:
-            # 转换到 SAM 输入格式
+
             img_np = self.denormalize(img.unsqueeze(0))[0]  # [3, H, W]
             img_np = img_np.permute(1, 2, 0).cpu().numpy()  # [H, W, 3]
 
-            # 生成掩码
             sam_masks = self.generator.generate(img_np)
 
             if len(sam_masks) == 0:
                 mask = torch.zeros(img.shape[1], img.shape[2], device=self.device)
             else:
-                # 选择掩码策略
+
                 if strategy == "largest":
                     selected = sorted(sam_masks, key=lambda x: x['area'], reverse=True)[0]
                 elif strategy == "best_quality":
@@ -93,20 +84,20 @@ class SAMMaskGenerator_without_Prompt(nn.Module):
     
 class SAMMaskGenerator(nn.Module):
     def __init__(self,
-                 model_type="vit_b",
-                 checkpoint_path="/gly/yury/lhy/CFNet/initmodel/sam_vit_b_01ec64.pth",
+                 model_type="***",
+                 checkpoint_path="/gly/yury/lhy/CFNet/initmodel/***",
                  points_per_side=8,
                  pred_iou_thresh=0.82,
                  device="cuda"):
         super().__init__()
         self.device = device
-        # 初始化 SAM 模型
+
         sam = sam_model_registry[model_type](checkpoint=checkpoint_path)
         sam.to(device=device)
         for param in sam.parameters():
             param.requires_grad_(False)
         sam.eval()
-        # 配置双生成器
+
         self.auto_generator = SamAutomaticMaskGenerator(
             model=sam,
             points_per_side=points_per_side,
@@ -116,34 +107,24 @@ class SAMMaskGenerator(nn.Module):
             points_per_batch=64
         )
         self.predictor = SamPredictor(sam)
-        # 图像归一化参数
+
         self.register_buffer("mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
         self.register_buffer("std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
 
     def denormalize(self, tensor):
-        """将归一化的图像张量转换到0-255范围"""
+
         return torch.clamp((tensor * self.std + self.mean) * 255, 0, 255).byte()
 
     def forward(self, images, strategy="largest", prompts=None):
-        """
-        输入:
-            images: [B, C, H, W] 归一化后的图像张量
-            strategy: 掩码选择策略 ("largest"|"best_quality"|"merge_all")
-            prompts: list of dicts，每个dict包含:
-                - points: [N, 2] 点坐标
-                - labels: [N] 点标签 (1前景, 0背景)
-                - box: [4,] 边界框 [x0,y0,x1,y1]
-        输出:
-            masks: [B, 1, H, W] 二进制掩码
-        """
+
         batch_masks = []
         for i, img in enumerate(images):
-            # 图像预处理
+
             img_np = self.denormalize(img.unsqueeze(0))[0]
             img_np = img_np.permute(1, 2, 0).cpu().numpy()
 
             if prompts is not None:
-                # Prompt模式
+
                 prompt = prompts[i] if i < len(prompts) else {}
                 self.predictor.set_image(img_np)
                 masks, scores, _ = self.predictor.predict(
@@ -157,9 +138,9 @@ class SAMMaskGenerator(nn.Module):
                     for m, s in zip(masks, scores)
                 ]
             else:
-                # 自动生成模式
+
                 sam_masks = self.auto_generator.generate(img_np)
-            # 统一策略处理
+
             if not sam_masks:
                 mask = torch.zeros(img.shape[1], img.shape[2], device=self.device)
             else:
@@ -193,7 +174,7 @@ class SAMPromptGenerator(nn.Module):
         self.connectivity = connectivity
 
     def _find_main_object(self, mask):
-        """提取最大连通区域"""
+
         if np.count_nonzero(mask) == 0:
             return mask
 
@@ -204,18 +185,18 @@ class SAMPromptGenerator(nn.Module):
         return (labeled == largest_label).astype(np.uint8)
 
     def _generate_points(self, mask, fg_coords):
-        """生成点提示策略"""
+
         points, labels = [], []
 
         # 前景点生成
         if len(fg_coords) > 0 and not np.all(fg_coords == 0):
             if self.point_strategy == "center":
-                # 计算质心坐标
+
                 y_center = int(np.round(fg_coords[:, 0].mean()))
                 x_center = int(np.round(fg_coords[:, 1].mean()))
                 points.append([x_center, y_center])
                 labels.append(1)
-            else:  # 随机采样
+            else:  
                 indices = np.random.choice(len(fg_coords),
                                            size=min(self.num_points, len(fg_coords)))
                 for idx in indices:
@@ -223,7 +204,7 @@ class SAMPromptGenerator(nn.Module):
                     points.append([x, y])
                     labels.append(1)
 
-        # 背景点生成
+
         if self.add_background and (len(points) > 0):
             bg_coords = np.column_stack(np.where(mask == 0))
             if len(bg_coords) > 0 and not np.all(bg_coords == 0):
@@ -236,15 +217,7 @@ class SAMPromptGenerator(nn.Module):
         return np.array(points), np.array(labels)
 
     def forward(self, masks):
-        """
-        输入:
-            masks: [B, 1, H, W] 概率掩码 (0-1范围)
-        输出:
-            prompts: list of dicts，每个dict包含:
-                - points: [N, 2] 点坐标 (绝对坐标)
-                - labels: [N] 点标签 (1=前景, 0=背景)
-                - box: [4,] 边界框 [x0,y0,x1,y1]
-        """
+
         batch_prompts = []
         with torch.no_grad():
             masks_np = masks.detach().cpu().numpy()
@@ -256,7 +229,7 @@ class SAMPromptGenerator(nn.Module):
                 
                 prompt = {"points": None, "labels": None, "box": None}
                 
-                # 边界框生成（增加维度验证）
+
                 if self.prompt_type in ["box", "both"]:
                     if fg_coords.size > 0 and fg_coords.ndim == 2:
                         try:
@@ -271,12 +244,11 @@ class SAMPromptGenerator(nn.Module):
                             prompt["box"] = None
                     else:
                         prompt["box"] = None
-                
-                # 点生成（增加空坐标检查）
+
                 if self.prompt_type in ["point", "both"]:
                     if fg_coords.size > 0 and fg_coords.ndim == 2:
                         points, labels = self._generate_points(processed_mask, fg_coords)
-                        # 有效性过滤
+
                         valid_points = [
                             p for p in points 
                             if not np.any(np.isnan(p)) and p[0] < processed_mask.shape[1] and p[1] < processed_mask.shape[0]
@@ -289,15 +261,11 @@ class SAMPromptGenerator(nn.Module):
         
         return batch_prompts
 
-# sam = sam_model_registry["vit_b"](checkpoint="/gly/yury/lhy/CFNet/initmodel/sam_vit_b_01ec64.pth")
-# print("Image Encoder Modules:")
-# for name, _ in sam.image_encoder.named_modules():
-#     print(name)
 
 class SAMMaskGenerator_without_Prompt_LoRA(nn.Module):
     def __init__(self,
-                 model_type="vit_b",
-                 checkpoint_path="/gly/yury/lhy/CFNet/initmodel/sam_vit_b_01ec64.pth",
+                 model_type="***",
+                 checkpoint_path="/gly/yury/lhy/CFNet/initmodel/***",
                  points_per_side=8,
                  pred_iou_thresh=0.9,
                  lora_rank=8,
@@ -306,25 +274,23 @@ class SAMMaskGenerator_without_Prompt_LoRA(nn.Module):
                  device="cuda"):
         super().__init__()
         self.device = device
-        # 初始化 SAM 模型
+
         sam = sam_model_registry[model_type](checkpoint=checkpoint_path)
-        # 创建LoRA配置（注意：target_modules需要根据实际模型结构调整）
+
         lora_config = LoraConfig(
             r=lora_rank,
             lora_alpha=lora_alpha,
-            target_modules=["proj"],  # 关键修改：指定要注入LoRA的模块
+            target_modules=["proj"], 
             lora_dropout=lora_dropout,
             bias="none",
         )
-        # 对image_encoder应用LoRA适配器
+
         sam.image_encoder = get_peft_model(sam.image_encoder, lora_config)
         
-        # 将模型转移到设备
         sam.to(device=device)
-        # 自动冻结非LoRA参数（通过peft自动处理）
-        # 打印可训练参数数量
+
         sam.image_encoder.print_trainable_parameters()
-        # 配置自动掩码生成器
+
         self.generator = SamAutomaticMaskGenerator(
             model=sam,
             points_per_side=points_per_side,
@@ -333,31 +299,25 @@ class SAMMaskGenerator_without_Prompt_LoRA(nn.Module):
             crop_n_layers=1,
             points_per_batch=64
         )
-        # 图像归一化参数
+
         self.register_buffer("mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
         self.register_buffer("std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
     def denormalize(self, tensor):
-        """将归一化的图像张量转换到 0-255 范围"""
+
         return torch.clamp((tensor * self.std + self.mean) * 255, 0, 255).byte()
     def forward(self, images, strategy="largest"):
-        """
-        输入:
-            images - [B, C, H, W] 归一化后的图像张量 (0-1)
-            strategy - 掩码选择策略: "largest" | "best_quality" | "merge_all"
-        输出:
-            masks - [B, 1, H, W] 二进制掩码
-        """
+
         batch_masks = []
         for img in images:
-            # 转换到 SAM 输入格式
+
             img_np = self.denormalize(img.unsqueeze(0))[0]  # [3, H, W]
             img_np = img_np.permute(1, 2, 0).cpu().numpy()  # [H, W, 3]
-            # 生成掩码
+
             sam_masks = self.generator.generate(img_np)
             if len(sam_masks) == 0:
                 mask = torch.zeros(img.shape[1], img.shape[2], device=self.device)
             else:
-                # 选择掩码策略
+
                 if strategy == "largest":
                     selected = sorted(sam_masks, key=lambda x: x['area'], reverse=True)[0]
                 elif strategy == "best_quality":
@@ -392,16 +352,6 @@ class FICN_Net(nn.Module):
         self.fbci = FBCI(dim=1024)
 
         self.spac = SPAC(1024, 1024)
-
-        # self.dstcp = DSTCP(in_channels=1024, proj_channels=1024)
-
-        # self.prompt_gan = SAMPromptGenerator(prompt_type="both",  # "point"|"box"|"both"
-        #          point_strategy="center",  # "center"|"random"
-        #          num_points=1)
-
-        # self.sam = SAMMaskGenerator(points_per_side=8, pred_iou_thresh=0.82)
-
-        # self.sam_lora = SAMMaskGenerator_without_Prompt_LoRA()
 
         self.csc_validation_use_gt_mask = bool(getattr(args, "csc_validation_use_gt_mask", False)) if args is not None else False
         self.sam_no_prompt = None if self.csc_validation_use_gt_mask else SAMMaskGenerator_without_Prompt(points_per_side=8, pred_iou_thresh=0.82)
@@ -568,7 +518,7 @@ class FICN_Net(nn.Module):
                 qry_sam_mask = self.sam_no_prompt(img_q)
             # qry_sam_mask = self.sam_lora(img_q)
         target_size2 = (feature_q.size(2), feature_q.size(3))
-        # 使用双线性插值（适合浮点型特征）
+
         qry_sam_mask = F.interpolate(
             qry_sam_mask,
             size=target_size2,
@@ -578,19 +528,7 @@ class FICN_Net(nn.Module):
         enhance_q = self.enhance_feature(feature_q, normal_prototype, qry_sam_mask)
         z = feature_q.clone()
         feature_q = feature_q + enhance_q 
-        
-        # DSTCP
-        # if self.shot > 1:
-        #     for i in range(self.shot):
-        #         feature_s_single = (feature_s_ls[0+i*b:b+i*b, :, :, :]).float()
-        #         supp_mask_single = (supp_mask_ls[0+i*b:b+i*b, :, :, :]).float().unsqueeze(1)
-        #         loss_dstcp += self.dstcp(feature_s_single, feature_q, supp_mask_single, qry_sam_mask)
-        # else: 
-        #     loss_dstcp = self.dstcp(feature_s_ls, feature_q, supp_mask_ls, qry_sam_mask)
-
-        # loss_dstcp = loss_dstcp/self.shot
-
-        # foreground(target class) and background prototypes pooled from K support features
+    
         feature_fg_list = []
         feature_bg_list = []
         supp_out_ls = []
